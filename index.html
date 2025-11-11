@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Club 19 London - Invoice Flow</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin { animation: spin 1s linear infinite; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState } = React;
+    
+    // Simple SVG icons
+    const Home = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
+    const Copy = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>;
+    const Check = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>;
+
+    const InvoiceFlow = () => {
+      const [itemLocation, setItemLocation] = useState(null);
+      const [clientLocation, setClientLocation] = useState(null);
+      const [purchaseType, setPurchaseType] = useState(null);
+      const [shippingOption, setShippingOption] = useState(null);
+      const [directShip, setDirectShip] = useState(null);
+      const [insuranceLanded, setInsuranceLanded] = useState(null);
+      const [copied, setCopied] = useState(false);
+      const [customerName, setCustomerName] = useState('');
+      const [itemDescription, setItemDescription] = useState('');
+      const [price, setPrice] = useState('');
+      const [currency, setCurrency] = useState('GBP');
+      const [dueDate, setDueDate] = useState('');
+      const [sending, setSending] = useState(false);
+
+      const reset = () => {
+        setItemLocation(null);
+        setClientLocation(null);
+        setPurchaseType(null);
+        setShippingOption(null);
+        setDirectShip(null);
+        setInsuranceLanded(null);
+        setCopied(false);
+        setCustomerName('');
+        setItemDescription('');
+        setPrice('');
+        setCurrency('GBP');
+        setDueDate('');
+      };
+
+      const getCurrencySymbol = (curr) => {
+        const symbols = { 'GBP': '£', 'USD': '$', 'EUR': '€', 'CHF': 'CHF', 'JPY': '¥' };
+        return symbols[curr] || curr;
+      };
+
+      const copyToClipboard = () => {
+        if (!result) return;
+        
+        const text = `CLUB 19 LONDON - INVOICE SETTINGS
+
+Invoice Item Line Detail:
+${result.taxLiability.replace('\\n', '\n')}
+${result.note ? `Note: ${result.note}` : ''}
+
+Brand Theme: ${result.brandTheme}
+Amounts Are: ${result.amountsAre}
+Account Code: ${result.accountCode}
+Tax Rate: ${result.taxRate}
+VAT Reclaim: ${result.vatReclaim}
+
+${customerName ? `Customer: ${customerName}` : ''}
+${itemDescription ? `Item: ${itemDescription}` : ''}
+${price ? `Price: ${getCurrencySymbol(currency)}${price} (${currency})` : ''}
+${dueDate ? `Due Date: ${dueDate}` : ''}
+
+---
+Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-GB')}`;
+
+        navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        });
+      };
+
+      const sendToXero = async () => {
+        if (!result || !customerName || !itemDescription || !price) {
+          alert('Please fill in Customer, Item, and Price fields');
+          return;
+        }
+
+        setSending(true);
+
+        // IMPORTANT: Replace this with your Make.com webhook URL
+        const webhookURL = 'https://hook.eu2.make.com/6yd7c1j1we7wzujw7vdne6cr6wd8jp9b';
+
+        const invoiceData = {
+          accountCode: result.accountCode,
+          taxRate: result.taxRate,
+          brandTheme: result.brandTheme,
+          amountsAre: result.amountsAre,
+          taxLiability: result.taxLiability,
+          vatReclaim: result.vatReclaim,
+          customerName: customerName,
+          itemDescription: itemDescription,
+          price: parseFloat(price),
+          currency: currency,
+          dueDate: dueDate || null,
+          timestamp: new Date().toISOString()
+        };
+
+        try {
+          const response = await fetch(webhookURL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(invoiceData)
+          });
+          
+          if (response.ok) {
+            alert('Invoice created in Xero successfully!');
+            // Optionally reset form after success
+            // reset();
+          } else {
+            throw new Error('Failed to create invoice');
+          }
+          setSending(false);
+        } catch (error) {
+          alert('Error sending to Xero: ' + error.message);
+          setSending(false);
+        }
+      };
+
+      const getResult = () => {
+        if (itemLocation === 'uk' && clientLocation && purchaseType) {
+          const scenarios = {
+            'uk-retail': {
+              taxLiability: 'Full price of item including VAT on first line\n+ Service Fee on second line',
+              brandTheme: 'CN 20% VAT',
+              amountsAre: 'Tax Inclusive',
+              accountCode: '425',
+              taxRate: '20% VAT on Income',
+              vatReclaim: 'Business reclaims VAT from original purchase'
+            },
+            'uk-margin': {
+              taxLiability: 'Item is purchased on UK margin rule',
+              brandTheme: 'CN Margin Scheme',
+              amountsAre: 'Tax Inclusive',
+              accountCode: '424',
+              taxRate: 'Zero Rated Income 0%',
+              vatReclaim: 'None'
+            },
+            'outside-retail': {
+              taxLiability: 'Full price of item including VAT on first line\n+ Service Fee on second line',
+              brandTheme: 'CN Export Sales',
+              amountsAre: 'Tax Exclusive',
+              accountCode: '423',
+              taxRate: 'Zero Rated Income 0%',
+              vatReclaim: 'Business reclaims VAT from original purchase'
+            },
+            'outside-margin': {
+              taxLiability: 'Item is purchased on UK margin rule',
+              brandTheme: 'CN Export Sales',
+              amountsAre: 'Tax Exclusive',
+              accountCode: '423',
+              taxRate: 'Zero Rated Income 0%',
+              vatReclaim: 'None'
+            }
+          };
+          return scenarios[`${clientLocation}-${purchaseType}`];
+        }
+
+        if (itemLocation === 'outside' && clientLocation === 'uk') {
+          if (shippingOption === 'no' || (shippingOption === 'yes' && directShip === 'no')) {
+            return {
+              taxLiability: 'Full VAT needs adding to Cost and Sale Price',
+              note: 'Item needs to come to UK',
+              brandTheme: 'CN 20% VAT',
+              amountsAre: 'Tax Inclusive',
+              accountCode: '425',
+              taxRate: '20% VAT on Income',
+              vatReclaim: 'None'
+            };
+          }
+          if (shippingOption === 'yes' && directShip === 'yes' && insuranceLanded) {
+            return {
+              taxLiability: insuranceLanded === 'yes' 
+                ? 'No liability, provide client item price plus margin plus delivery'
+                : 'Full VAT needs adding to Cost and Sale Price',
+              note: insuranceLanded === 'no' ? 'Item needs to come to UK' : null,
+              brandTheme: insuranceLanded === 'yes' ? 'CN Export Sales' : 'CN 20% VAT',
+              amountsAre: 'Tax Inclusive',
+              accountCode: insuranceLanded === 'yes' ? '423' : '425',
+              taxRate: insuranceLanded === 'yes' ? 'Zero Rated Income 0%' : '20% VAT on Income',
+              vatReclaim: 'None'
+            };
+          }
+        }
+
+        if (itemLocation === 'outside' && clientLocation === 'outside') {
+          return {
+            taxLiability: 'No liability, provide client item price plus margin plus delivery',
+            brandTheme: 'CN Export Sales',
+            amountsAre: 'Tax Inclusive',
+            accountCode: '423',
+            taxRate: 'Zero Rated Income 0%',
+            vatReclaim: 'None'
+          };
+        }
+
+        return null;
+      };
+
+      const result = getResult();
+
+      return (
+        <div className="min-h-screen bg-gray-50 p-4">
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+              <div className="bg-black text-white p-6">
+                <div className="text-center mb-2">
+                  <div className="font-serif text-2xl tracking-widest mb-1">CLUB<span className="text-3xl">19</span></div>
+                  <div className="font-serif text-sm tracking-widest">LONDON</div>
+                </div>
+                <div className="border-t border-gray-600 mt-4 pt-3">
+                  <h1 className="text-lg font-light text-center tracking-wide">Invoice Flow</h1>
+                </div>
+              </div>
+
+              <div className="p-4 space-y-4">
+                <div className="border-b pb-4">
+                  <div className="flex items-center mb-3">
+                    <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-bold text-sm mr-3">1</div>
+                    <h2 className="font-semibold text-gray-800">Where is the item?</h2>
+                  </div>
+                  <div className="space-y-2 ml-11">
+                    <button
+                      onClick={() => {
+                        setItemLocation('uk');
+                        setClientLocation(null);
+                        setPurchaseType(null);
+                        setShippingOption(null);
+                        setDirectShip(null);
+                        setInsuranceLanded(null);
+                      }}
+                      className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                        itemLocation === 'uk' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      Item is in UK
+                    </button>
+                    <button
+                      onClick={() => {
+                        setItemLocation('outside');
+                        setClientLocation(null);
+                        setPurchaseType(null);
+                        setShippingOption(null);
+                        setDirectShip(null);
+                        setInsuranceLanded(null);
+                      }}
+                      className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                        itemLocation === 'outside' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      Item is outside UK
+                    </button>
+                  </div>
+                </div>
+
+                {itemLocation && (
+                  <div className="border-b pb-4 animate-fadeIn">
+                    <div className="flex items-center mb-3">
+                      <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-bold text-sm mr-3">2</div>
+                      <h2 className="font-semibold text-gray-800">Where is the client?</h2>
+                    </div>
+                    <div className="space-y-2 ml-11">
+                      <button
+                        onClick={() => {
+                          setClientLocation('uk');
+                          setPurchaseType(null);
+                          setShippingOption(null);
+                          setDirectShip(null);
+                          setInsuranceLanded(null);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                          clientLocation === 'uk' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        Client is in UK
+                      </button>
+                      <button
+                        onClick={() => {
+                          setClientLocation('outside');
+                          setPurchaseType(null);
+                          setShippingOption(null);
+                          setDirectShip(null);
+                          setInsuranceLanded(null);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                          clientLocation === 'outside' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        Client is outside UK
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {itemLocation === 'uk' && clientLocation && (
+                  <div className="pb-4 animate-fadeIn">
+                    <div className="flex items-center mb-3">
+                      <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-bold text-sm mr-3">3</div>
+                      <h2 className="font-semibold text-gray-800">How is item purchased?</h2>
+                    </div>
+                    <div className="space-y-2 ml-11">
+                      <button
+                        onClick={() => setPurchaseType('retail')}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                          purchaseType === 'retail' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        From retail store
+                      </button>
+                      <button
+                        onClick={() => setPurchaseType('margin')}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                          purchaseType === 'margin' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        On UK margin rule
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {itemLocation === 'outside' && clientLocation === 'uk' && (
+                  <div className="border-b pb-4 animate-fadeIn">
+                    <div className="flex items-center mb-3">
+                      <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-bold text-sm mr-3">3</div>
+                      <h2 className="font-semibold text-gray-800">Can client have shipped to other countries?</h2>
+                    </div>
+                    <div className="space-y-2 ml-11">
+                      <button
+                        onClick={() => {
+                          setShippingOption('no');
+                          setDirectShip(null);
+                          setInsuranceLanded(null);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                          shippingOption === 'no' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        No
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShippingOption('yes');
+                          setDirectShip(null);
+                          setInsuranceLanded(null);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                          shippingOption === 'yes' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        Yes
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {itemLocation === 'outside' && clientLocation === 'uk' && shippingOption === 'yes' && (
+                  <div className="border-b pb-4 animate-fadeIn">
+                    <div className="flex items-center mb-3">
+                      <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-bold text-sm mr-3">4</div>
+                      <h2 className="font-semibold text-gray-800">Can item be directly shipped from Supplier to Client?</h2>
+                    </div>
+                    <div className="space-y-2 ml-11">
+                      <button
+                        onClick={() => {
+                          setDirectShip('no');
+                          setInsuranceLanded(null);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                          directShip === 'no' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        No
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDirectShip('yes');
+                          setInsuranceLanded(null);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                          directShip === 'yes' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        Yes
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {itemLocation === 'outside' && clientLocation === 'uk' && shippingOption === 'yes' && directShip === 'yes' && (
+                  <div className="pb-4 animate-fadeIn">
+                    <div className="flex items-center mb-3">
+                      <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-bold text-sm mr-3">5</div>
+                      <h2 className="font-semibold text-gray-800">Can Supplier provide full insurance and landed cost?</h2>
+                    </div>
+                    <div className="space-y-2 ml-11">
+                      <button
+                        onClick={() => setInsuranceLanded('no')}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                          insuranceLanded === 'no' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        No
+                      </button>
+                      <button
+                        onClick={() => setInsuranceLanded('yes')}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                          insuranceLanded === 'yes' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        Yes
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {result && (
+                <div className="bg-gray-100 border-t-4 border-black p-4 animate-fadeIn">
+                  <h3 className="font-bold text-gray-900 mb-3 text-lg">Invoice Settings:</h3>
+                  
+                  <div className="space-y-3">
+                    <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Invoice Item Line Detail</div>
+                      <div className="text-gray-900 font-medium whitespace-pre-line">{result.taxLiability}</div>
+                      {result.note && <div className="text-sm text-amber-700 mt-1 italic">{result.note}</div>}
+                    </div>
+                    <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Brand Theme</div>
+                      <div className="text-gray-900 font-medium">{result.brandTheme}</div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Amounts Are</div>
+                      <div className="text-gray-900 font-medium">{result.amountsAre}</div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Account Code</div>
+                      <div className="text-gray-900 font-medium text-2xl">{result.accountCode}</div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Tax Rate</div>
+                      <div className="text-gray-900 font-medium">{result.taxRate}</div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">VAT Reclaim</div>
+                      <div className="text-gray-900 font-medium">{result.vatReclaim}</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-6 border-t border-gray-300">
+                    <h3 className="font-bold text-gray-900 mb-3 text-lg">Invoice Details:</h3>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Customer Name</label>
+                        <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Enter customer name" className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Item Description</label>
+                        <input type="text" value={itemDescription} onChange={(e) => setItemDescription(e.target.value)} placeholder="Enter item description" className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Price</label>
+                        <div className="flex gap-2">
+                          <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-28 p-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none bg-white">
+                            <option value="GBP">£ GBP</option>
+                            <option value="USD">$ USD</option>
+                            <option value="EUR">€ EUR</option>
+                            <option value="CHF">CHF</option>
+                            <option value="JPY">¥ JPY</option>
+                          </select>
+                          <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" step="0.01" min="0" className="flex-1 p-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Due Date</label>
+                        <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 mt-4">
+                    <button onClick={sendToXero} disabled={sending || !customerName || !itemDescription || !price} className={`w-full p-3 rounded-lg font-medium transition-colors flex items-center justify-center ${sending || !customerName || !itemDescription || !price ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'}`}>
+                      {sending ? (<><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>Sending to Xero...</>) : ('Create Invoice in Xero')}
+                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={copyToClipboard} className="bg-gray-800 text-white p-3 rounded-lg font-medium hover:bg-gray-700 transition-colors flex items-center justify-center">
+                        {copied ? (<><Check className="w-4 h-4 mr-2" />Copied!</>) : (<><Copy className="w-4 h-4 mr-2" />Copy</>)}
+                      </button>
+                      <button onClick={reset} className="bg-black text-white p-3 rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center">
+                        <Home className="w-4 h-4 mr-2" />Start Over
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<InvoiceFlow />, document.getElementById('root'));
+  </script>
+</body>
+</html>
