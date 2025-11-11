@@ -45,6 +45,19 @@
       const [currency, setCurrency] = useState('GBP');
       const [dueDate, setDueDate] = useState('');
       const [sending, setSending] = useState(false);
+// --- Validation logic ---
+const [errors, setErrors] = useState({});
+const isFormValid = customerName && itemDescription && price && dueDate;
+
+const validateFields = () => {
+  const newErrors = {};
+  if (!customerName) newErrors.customerName = "Customer name is required.";
+  if (!itemDescription) newErrors.itemDescription = "Item description is required.";
+  if (!price) newErrors.price = "Price is required.";
+  if (!dueDate) newErrors.dueDate = "Due date is required.";
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
+};
 
       const reset = () => {
         setItemLocation(null);
@@ -95,11 +108,18 @@ Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeSt
         });
       };
 
-      const sendToXero = async () => {
-        if (!result || !customerName || !itemDescription || !price) {
-          alert('Please fill in Customer, Item, and Price fields');
-          return;
-        }
+ const sendToXero = async () => {
+  if (!result) {
+    alert('Please complete the item setup steps first.');
+    return;
+  }
+
+  if (!validateFields()) {
+    return;
+  }
+
+
+
 
         setSending(true);
 
