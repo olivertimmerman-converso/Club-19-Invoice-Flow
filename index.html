@@ -47,6 +47,7 @@
       const [dropdownResults, setDropdownResults] = useState([]);
       const [loadingCustomers, setLoadingCustomers] = useState(false);
       const [selectedIndex, setSelectedIndex] = useState(-1);
+      const [isSearchActive, setIsSearchActive] = useState(false);
       const [errors, setErrors] = useState({});
       
       const dropdownRef = useRef(null);
@@ -58,6 +59,7 @@
         const handleClickOutside = (event) => {
           if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
             setDropdownResults([]);
+            setIsSearchActive(false);
           }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -85,6 +87,7 @@
       const handleCustomerInput = async (value) => {
         setCustomerName(value);
         setSelectedIndex(-1);
+        setIsSearchActive(true);
 
         if (debounceTimer.current) {
           clearTimeout(debounceTimer.current);
@@ -97,6 +100,7 @@
           }, 300);
         } else {
           setDropdownResults([]);
+          setIsSearchActive(false);
         }
       };
 
@@ -116,6 +120,7 @@
           selectCustomer(dropdownResults[selectedIndex]);
         } else if (e.key === 'Escape') {
           setDropdownResults([]);
+          setIsSearchActive(false);
         }
       };
 
@@ -123,6 +128,7 @@
         setCustomerName(contact.Name);
         setDropdownResults([]);
         setSelectedIndex(-1);
+        setIsSearchActive(false);
       };
 
       const isFormValid = customerName && itemDescription && price && dueDate;
@@ -152,6 +158,7 @@
         setDueDate('');
         setErrors({});
         setDropdownResults([]);
+        setIsSearchActive(false);
       };
 
       const getCurrencySymbol = (curr) => {
@@ -242,7 +249,7 @@ Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeSt
             'uk-retail': {
               taxLiability: 'Full price of item including VAT on first line\n+ Service Fee on second line',
               brandTheme: 'CN 20% VAT',
-              amountsAre: 'Tax Inclusive',
+              amountsAre: 'Inclusive',
               accountCode: '425',
               taxRate: '20% VAT on Income',
               vatReclaim: 'Business reclaims VAT from original purchase'
@@ -250,7 +257,7 @@ Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeSt
             'uk-margin': {
               taxLiability: 'Item is purchased on UK margin rule',
               brandTheme: 'CN Margin Scheme',
-              amountsAre: 'Tax Inclusive',
+              amountsAre: 'Inclusive',
               accountCode: '424',
               taxRate: 'Zero Rated Income 0%',
               vatReclaim: 'None'
@@ -258,7 +265,7 @@ Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeSt
             'outside-retail': {
               taxLiability: 'Full price of item including VAT on first line\n+ Service Fee on second line',
               brandTheme: 'CN Export Sales',
-              amountsAre: 'Tax Exclusive',
+              amountsAre: 'Exclusive',
               accountCode: '423',
               taxRate: 'Zero Rated Income 0%',
               vatReclaim: 'Business reclaims VAT from original purchase'
@@ -266,7 +273,7 @@ Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeSt
             'outside-margin': {
               taxLiability: 'Item is purchased on UK margin rule',
               brandTheme: 'CN Export Sales',
-              amountsAre: 'Tax Exclusive',
+              amountsAre: 'Exclusive',
               accountCode: '423',
               taxRate: 'Zero Rated Income 0%',
               vatReclaim: 'None'
@@ -281,7 +288,7 @@ Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeSt
               taxLiability: 'Full VAT needs adding to Cost and Sale Price',
               note: 'Item needs to come to UK',
               brandTheme: 'CN 20% VAT',
-              amountsAre: 'Tax Inclusive',
+              amountsAre: 'Inclusive',
               accountCode: '425',
               taxRate: '20% VAT on Income',
               vatReclaim: 'None'
@@ -294,7 +301,7 @@ Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeSt
                 : 'Full VAT needs adding to Cost and Sale Price',
               note: insuranceLanded === 'no' ? 'Item needs to come to UK' : null,
               brandTheme: insuranceLanded === 'yes' ? 'CN Export Sales' : 'CN 20% VAT',
-              amountsAre: 'Tax Inclusive',
+              amountsAre: 'Inclusive',
               accountCode: insuranceLanded === 'yes' ? '423' : '425',
               taxRate: insuranceLanded === 'yes' ? 'Zero Rated Income 0%' : '20% VAT on Income',
               vatReclaim: 'None'
@@ -306,7 +313,7 @@ Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeSt
           return {
             taxLiability: 'No liability, provide client item price plus margin plus delivery',
             brandTheme: 'CN Export Sales',
-            amountsAre: 'Tax Inclusive',
+            amountsAre: 'Inclusive',
             accountCode: '423',
             taxRate: 'Zero Rated Income 0%',
             vatReclaim: 'None'
@@ -606,7 +613,7 @@ Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeSt
                             </ul>
                           )}
 
-                          {!loadingCustomers && customerName.length >= 2 && dropdownResults.length === 0 && (
+                          {isSearchActive && !loadingCustomers && customerName.length >= 2 && dropdownResults.length === 0 && (
                             <div className="absolute z-10 bg-white border-2 border-gray-300 rounded-lg shadow-lg mt-1 p-3 w-full text-gray-500 text-sm">
                               No customers found. Try a different search.
                             </div>
