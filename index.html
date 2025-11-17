@@ -1,715 +1,769 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Club 19 London - Invoice Flow</title>
+
+  <!-- React + Babel -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+
   <style>
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-10px); }
+      from { opacity: 0; transform: translateY(-6px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+    .animate-fadeIn { animation: fadeIn 0.25s ease-out; }
+
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
     .animate-spin { animation: spin 1s linear infinite; }
   </style>
 </head>
-<body>
+
+<body class="bg-gray-50">
   <div id="root"></div>
-  
+
   <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
-    
-    const Home = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
-    const Copy = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>;
-    const Check = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>;
 
-    const InvoiceFlow = () => {
-      const [itemLocation, setItemLocation] = useState(null);
-      const [clientLocation, setClientLocation] = useState(null);
-      const [purchaseType, setPurchaseType] = useState(null);
-      const [shippingOption, setShippingOption] = useState(null);
-      const [directShip, setDirectShip] = useState(null);
-      const [insuranceLanded, setInsuranceLanded] = useState(null);
-      const [copied, setCopied] = useState(false);
-      const [customerName, setCustomerName] = useState('');
-      const [itemDescription, setItemDescription] = useState('');
-      const [price, setPrice] = useState('');
-      const [currency, setCurrency] = useState('GBP');
-      const [dueDate, setDueDate] = useState('');
-      const [sending, setSending] = useState(false);
-      const [dropdownResults, setDropdownResults] = useState([]);
-      const [loadingCustomers, setLoadingCustomers] = useState(false);
-      const [selectedIndex, setSelectedIndex] = useState(-1);
-      const [isSearchActive, setIsSearchActive] = useState(false);
-      const [errors, setErrors] = useState({});
-      
-      const dropdownRef = useRef(null);
-      const inputRef = useRef(null);
-      const debounceTimer = useRef(null);
+/* --------------------------------------------------
+      MAIN INVOICE COMPONENT
+-------------------------------------------------- */
+const { useState, useEffect, useRef } = React;
 
-      // Close dropdown when clicking outside
-      useEffect(() => {
-        const handleClickOutside = (event) => {
-          if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-            setDropdownResults([]);
-            setIsSearchActive(false);
-          }
+const InvoiceFlow = () => {
+
+  /* ---------------- STATE ---------------- */
+  const [itemLocation, setItemLocation] = useState(null);
+  const [clientLocation, setClientLocation] = useState(null);
+  const [purchaseType, setPurchaseType] = useState(null);
+  const [shippingOption, setShippingOption] = useState(null);
+  const [directShip, setDirectShip] = useState(null);
+  const [insuranceLanded, setInsuranceLanded] = useState(null);
+
+  const [customerName, setCustomerName] = useState("");
+  const [itemDescription, setItemDescription] = useState("");
+  const [price, setPrice] = useState("");
+  const [currency, setCurrency] = useState("GBP");
+  const [dueDate, setDueDate] = useState("");
+
+  const [dropdownResults, setDropdownResults] = useState([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [sending, setSending] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const dropdownRef = useRef(null);
+  const debounceTimer = useRef(null);
+
+  /* --------------------------------------------------
+          CUSTOMER SEARCH (Xero → Make webhook)
+  -------------------------------------------------- */
+  const fetchXeroContacts = async (query) => {
+    try {
+      setLoadingCustomers(true);
+      const response = await fetch(
+        "https://hook.eu2.make.com/knai3w9y6zsblc2kc1qu8j33cp4pwlhj",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query })
+        }
+      );
+      const data = await response.json();
+      setLoadingCustomers(false);
+      return data.contacts || [];
+    } catch (err) {
+      console.error("Contact search error:", err);
+      setLoadingCustomers(false);
+      return [];
+    }
+  };
+
+  const handleCustomerInput = (value) => {
+    setCustomerName(value);
+    setSelectedIndex(-1);
+    setIsSearchActive(true);
+
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+    if (value.length >= 2) {
+      debounceTimer.current = setTimeout(async () => {
+        const results = await fetchXeroContacts(value);
+        setDropdownResults(results);
+      }, 300);
+    } else {
+      setDropdownResults([]);
+      setIsSearchActive(false);
+    }
+  };
+
+  const selectCustomer = (c) => {
+    setCustomerName(c.Name);
+    setDropdownResults([]);
+    setSelectedIndex(-1);
+    setIsSearchActive(false);
+  };
+
+  /* --------------------------------------------------
+          VALIDATION
+  -------------------------------------------------- */
+  const validateFields = () => {
+    const newErrors = {};
+    if (!customerName) newErrors.customerName = "Customer name is required.";
+    if (!itemDescription) newErrors.itemDescription = "Item description is required.";
+    if (!price) newErrors.price = "Price is required.";
+    if (!dueDate) newErrors.dueDate = "Due date is required.";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const isFormValid =
+    customerName && itemDescription && price && dueDate;
+
+  /* --------------------------------------------------
+          TAX LOGIC (FULLY FIXED)
+  -------------------------------------------------- */
+  const getResult = () => {
+
+    /* -----------------------------------------------
+          UK Item → UK Client
+    ----------------------------------------------- */
+    if (itemLocation === "uk" && clientLocation && purchaseType) {
+      const scenarios = {
+        "uk-retail": {
+          taxLiability:
+            "Full price of item including VAT on first line\n+ Service Fee on second line",
+          brandTheme: "CN 20% VAT",
+          amountsAre: "Inclusive",
+          accountCode: "425",
+          taxRate: "20% VAT on Income",
+          vatReclaim: "Business reclaims VAT from original purchase"
+        },
+
+        "uk-margin": {
+          taxLiability: "Item is purchased on UK margin rule",
+          brandTheme: "CN Margin Scheme",
+          amountsAre: "Inclusive",
+          accountCode: "424",
+          taxRate: "Zero Rated Income 0%",
+          vatReclaim: "None"
+        },
+
+        "outside-retail": {
+          taxLiability:
+            "Full price of item including VAT on first line\n+ Service Fee on second line",
+          brandTheme: "CN Export Sales",
+          amountsAre: "Exclusive",
+          accountCode: "423",
+          taxRate: "Zero Rated Income 0%",
+          vatReclaim: "Business reclaims VAT from original purchase"
+        },
+
+        "outside-margin": {
+          taxLiability: "Item is purchased on UK margin rule",
+          brandTheme: "CN Export Sales",
+          amountsAre: "Exclusive",
+          accountCode: "423",
+          taxRate: "Zero Rated Income 0%",
+          vatReclaim: "None"
+        }
+      };
+
+      return scenarios[`${clientLocation}-${purchaseType}`];
+    }
+
+    /* -----------------------------------------------
+          Item Outside → UK Client
+    ----------------------------------------------- */
+    if (itemLocation === "outside" && clientLocation === "uk") {
+      // ❌ Cannot send directly or shipping = No
+      if (
+        shippingOption === "no" ||
+        (shippingOption === "yes" && directShip === "no")
+      ) {
+        return {
+          taxLiability: "Full VAT needs adding to Cost and Sale Price",
+          note: "Item needs to come to UK",
+          brandTheme: "CN 20% VAT",
+          amountsAre: "Inclusive",
+          accountCode: "425",
+          taxRate: "20% VAT on Income",
+          vatReclaim: "None"
         };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-      }, []);
-
-      const fetchXeroContacts = async (query) => {
-        try {
-          setLoadingCustomers(true);
-          const response = await fetch("https://hook.eu2.make.com/knai3w9y6zsblc2kc1qu8j33cp4pwlhj", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query }),
-          });
-          const data = await response.json();
-          setLoadingCustomers(false);
-          return data.contacts || [];
-        } catch (err) {
-          console.error("Error fetching contacts:", err);
-          setLoadingCustomers(false);
-          return [];
-        }
-      };
-
-      const handleCustomerInput = async (value) => {
-        setCustomerName(value);
-        setSelectedIndex(-1);
-        setIsSearchActive(true);
-
-        if (debounceTimer.current) {
-          clearTimeout(debounceTimer.current);
-        }
-
-        if (value.length >= 2) {
-          debounceTimer.current = setTimeout(async () => {
-            const results = await fetchXeroContacts(value);
-            setDropdownResults(results);
-          }, 300);
-        } else {
-          setDropdownResults([]);
-          setIsSearchActive(false);
-        }
-      };
-
-      const handleKeyDown = (e) => {
-        if (dropdownResults.length === 0) return;
-
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          setSelectedIndex(prev => 
-            prev < dropdownResults.length - 1 ? prev + 1 : prev
-          );
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          setSelectedIndex(prev => prev > 0 ? prev - 1 : 0);
-        } else if (e.key === 'Enter' && selectedIndex >= 0) {
-          e.preventDefault();
-          selectCustomer(dropdownResults[selectedIndex]);
-        } else if (e.key === 'Escape') {
-          setDropdownResults([]);
-          setIsSearchActive(false);
-        }
-      };
-
-      const selectCustomer = (contact) => {
-        setCustomerName(contact.Name);
-        setDropdownResults([]);
-        setSelectedIndex(-1);
-        setIsSearchActive(false);
-      };
-
-      const isFormValid = customerName && itemDescription && price && dueDate;
-
-      const validateFields = () => {
-        const newErrors = {};
-        if (!customerName) newErrors.customerName = "Customer name is required.";
-        if (!itemDescription) newErrors.itemDescription = "Item description is required.";
-        if (!price) newErrors.price = "Price is required.";
-        if (!dueDate) newErrors.dueDate = "Due date is required.";
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-      };
-
-      const reset = () => {
-        setItemLocation(null);
-        setClientLocation(null);
-        setPurchaseType(null);
-        setShippingOption(null);
-        setDirectShip(null);
-        setInsuranceLanded(null);
-        setCopied(false);
-        setCustomerName('');
-        setItemDescription('');
-        setPrice('');
-        setCurrency('GBP');
-        setDueDate('');
-        setErrors({});
-        setDropdownResults([]);
-        setIsSearchActive(false);
-      };
-
-      const getCurrencySymbol = (curr) => {
-        const symbols = { 'GBP': '£', 'USD': '$', 'EUR': '€', 'CHF': 'CHF', 'JPY': '¥' };
-        return symbols[curr] || curr;
-      };
-
-      const copyToClipboard = () => {
-        if (!result) return;
-        
-        const text = `CLUB 19 LONDON - INVOICE SETTINGS
-
-Invoice Item Line Detail:
-${result.taxLiability.replace('\\n', '\n')}
-${result.note ? `Note: ${result.note}` : ''}
-
-Brand Theme: ${result.brandTheme}
-Amounts Are: ${result.amountsAre}
-Account Code: ${result.accountCode}
-Tax Rate: ${result.taxRate}
-VAT Reclaim: ${result.vatReclaim}
-
-${customerName ? `Customer: ${customerName}` : ''}
-${itemDescription ? `Item: ${itemDescription}` : ''}
-${price ? `Price: ${getCurrencySymbol(currency)}${price} (${currency})` : ''}
-${dueDate ? `Due Date: ${dueDate}` : ''}
-
----
-Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-GB')}`;
-
-        navigator.clipboard.writeText(text).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        });
-      };
-
-      const sendToXero = async () => {
-        if (!result) {
-          alert('Please complete the item setup steps first.');
-          return;
-        }
-
-        if (!validateFields()) {
-          return;
-        }
-
-        setSending(true);
-
-        const webhookURL = 'https://hook.eu2.make.com/6yd7c1j1we7wzujw7vdne6cr6wd8jp9b';
-
-        const invoiceData = {
-          accountCode: result.accountCode,
-          taxRate: result.taxRate,
-          brandTheme: result.brandTheme,
-          amountsAre: result.amountsAre,
-          taxLiability: result.taxLiability,
-          vatReclaim: result.vatReclaim,
-          customerName: customerName,
-          itemDescription: itemDescription,
-          price: parseFloat(price),
-          currency: currency,
-          dueDate: dueDate || null,
-          timestamp: new Date().toISOString()
-        };
-
-        try {
-          const response = await fetch(webhookURL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(invoiceData)
-          });
-          
-          if (response.ok) {
-            alert('Invoice created in Xero successfully!');
-          } else {
-            throw new Error('Failed to create invoice');
-          }
-          setSending(false);
-        } catch (error) {
-          alert('Error sending to Xero: ' + error.message);
-          setSending(false);
-        }
-      };
-
-      const getResult = () => {const getResult = () => {
-  if (itemLocation === 'uk' && clientLocation && purchaseType) {
-    const scenarios = {
-      'uk-retail': {
-        taxLiability: 'Full price of item including VAT on first line\n+ Service Fee on second line',
-        brandTheme: 'CN 20% VAT',
-        amountsAre: 'Inclusive',
-        accountCode: '425',
-        taxRate: '20% VAT on Income',               // ✔ UK RETAIL
-        vatReclaim: 'Business reclaims VAT from original purchase'
-      },
-      'uk-margin': {
-        taxLiability: 'Item is purchased on UK margin rule',
-        brandTheme: 'CN Margin Scheme',
-        amountsAre: 'Inclusive',
-        accountCode: '424',
-        taxRate: 'Zero Rated Income 0%',            // ✔ UK MARGIN
-        vatReclaim: 'None'
-      },
-      'outside-retail': {
-        taxLiability: 'Full price of item including VAT on first line\n+ Service Fee on second line',
-        brandTheme: 'CN Export Sales',
-        amountsAre: 'Exclusive',
-        accountCode: '423',
-        taxRate: 'Zero Rated Income 0%',            // ✔ EXPORT RETAIL
-        vatReclaim: 'Business reclaims VAT from original purchase'
-      },
-      'outside-margin': {
-        taxLiability: 'Item is purchased on UK margin rule',
-        brandTheme: 'CN Export Sales',
-        amountsAre: 'Exclusive',
-        accountCode: '423',
-        taxRate: 'Zero Rated Income 0%',            // ✔ EXPORT MARGIN
-        vatReclaim: 'None'
       }
-    };
-    return scenarios[`${clientLocation}-${purchaseType}`];
-  }
 
-  // Outside → UK
-  if (itemLocation === 'outside' && clientLocation === 'uk') {
-    // Not directly shipped, OR shipped but no landed cost
-    if (shippingOption === 'no' || (shippingOption === 'yes' && directShip === 'no')) {
+      // YES direct ship
+      if (shippingOption === "yes" && directShip === "yes" && insuranceLanded) {
+        const landed = insuranceLanded === "yes";
+
+        return {
+          taxLiability: landed
+            ? "No liability, provide client item price plus margin plus delivery"
+            : "Full VAT needs adding to Cost and Sale Price",
+          note: landed ? null : "Item needs to come to UK",
+          brandTheme: landed ? "CN Export Sales" : "CN 20% VAT",
+          amountsAre: "Inclusive",
+          accountCode: landed ? "423" : "425",
+          taxRate: landed ? "Zero Rated Income 0%" : "20% VAT on Income",
+          vatReclaim: "None"
+        };
+      }
+    }
+
+    /* -----------------------------------------------
+          Outside → Outside (export)
+    ----------------------------------------------- */
+    if (itemLocation === "outside" && clientLocation === "outside") {
       return {
-        taxLiability: 'Full VAT needs adding to Cost and Sale Price',
-        note: 'Item needs to come to UK',
-        brandTheme: 'CN 20% VAT',
-        amountsAre: 'Inclusive',
-        accountCode: '425',
-        taxRate: '20% VAT on Income',              // ✔ LANDING REQUIRED
-        vatReclaim: 'None'
+        taxLiability:
+          "No liability, provide client item price plus margin plus delivery",
+        brandTheme: "CN Export Sales",
+        amountsAre: "Inclusive",
+        accountCode: "423",
+        taxRate: "Zero Rated Income 0%",
+        vatReclaim: "None"
       };
     }
 
-    // Direct ship AND landed cost?
-    if (shippingOption === 'yes' && directShip === 'yes' && insuranceLanded) {
-      if (insuranceLanded === 'yes') {
-        return {
-          taxLiability: 'No liability, provide client item price plus margin plus delivery',
-          note: null,
-          brandTheme: 'CN Export Sales',
-          amountsAre: 'Inclusive',
-          accountCode: '423',
-          taxRate: 'Zero Rated Income 0%',        // ✔ LANDED COST PROVIDED
-          vatReclaim: 'None'
-        };
-      } else {
-        return {
-          taxLiability: 'Full VAT needs adding to Cost and Sale Price',
-          note: 'Item needs to come to UK',
-          brandTheme: 'CN 20% VAT',
-          amountsAre: 'Inclusive',
-          accountCode: '425',
-          taxRate: '20% VAT on Income',           // ✔ NO LANDED COST
-          vatReclaim: 'None'
-        };
-      }
-    }
-  }
+    return null;
+  };
 
-  // Outside → Outside
-  if (itemLocation === 'outside' && clientLocation === 'outside') {
-    return {
-      taxLiability: 'No liability, provide client item price plus margin plus delivery',
-      brandTheme: 'CN Export Sales',
-      amountsAre: 'Inclusive',
-      accountCode: '423',
-      taxRate: 'Zero Rated Income 0%',            // ✔ EXPORT
-      vatReclaim: 'None'
+  const result = getResult();
+
+  /* --------------------------------------------------
+          SEND TO XERO (Make Webhook)
+  -------------------------------------------------- */
+  const sendToXero = async () => {
+    if (!result) {
+      alert("Please complete invoice setup first.");
+      return;
+    }
+
+    if (!validateFields()) return;
+
+    setSending(true);
+
+    const invoiceData = {
+      accountCode: result.accountCode,
+      taxRate: result.taxRate,
+      brandTheme: result.brandTheme,
+      amountsAre: result.amountsAre,
+      taxLiability: result.taxLiability,
+      vatReclaim: result.vatReclaim,
+      customerName,
+      itemDescription,
+      price: parseFloat(price),
+      currency,
+      dueDate,
+      timestamp: new Date().toISOString()
     };
-  }
 
-  return null;
-};
+    try {
+      const resp = await fetch(
+        "https://hook.eu2.make.com/6yd7c1j1we7wzujw7vdne6cr6wd8jp9b",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(invoiceData)
+        }
+      );
 
-        return null;
-      };
+      if (!resp.ok) throw new Error("Xero creation failed");
 
-      const result = getResult();
+      alert("Invoice created successfully in Xero!");
+      setSending(false);
 
-      return (
-        <div className="min-h-screen bg-gray-50 p-4">
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-              <div className="bg-black text-white p-6">
-                <div className="text-center mb-2">
-                  <div className="font-serif text-2xl tracking-widest mb-1">CLUB<span className="text-3xl">19</span></div>
-                  <div className="font-serif text-sm tracking-widest">LONDON</div>
-                </div>
-                <div className="border-t border-gray-600 mt-4 pt-3">
-                  <h1 className="text-lg font-light text-center tracking-wide">Invoice Flow</h1>
-                </div>
+    } catch (err) {
+      alert("Error: " + err.message);
+      setSending(false);
+    }
+  };
+
+  /* --------------------------------------------------
+          RESET FORM
+  -------------------------------------------------- */
+  const reset = () => {
+    setItemLocation(null);
+    setClientLocation(null);
+    setPurchaseType(null);
+    setShippingOption(null);
+    setDirectShip(null);
+    setInsuranceLanded(null);
+    setCustomerName("");
+    setPrice("");
+    setItemDescription("");
+    setCurrency("GBP");
+    setDueDate("");
+    setDropdownResults([]);
+    setErrors({});
+    setSelectedIndex(-1);
+    setIsSearchActive(false);
+  };
+
+  /* --------------------------------------------------
+          UI RENDER
+  -------------------------------------------------- */
+  return (
+    <div className="max-w-xl mx-auto py-8">
+
+      {/* HEADER */}
+      <div className="bg-black text-white p-6 rounded-lg shadow mb-6">
+        <div className="text-center">
+          <div className="font-serif tracking-widest text-2xl">
+            CLUB<span className="text-3xl">19</span>
+          </div>
+          <div className="font-serif tracking-widest text-sm">LONDON</div>
+        </div>
+        <div className="border-t border-gray-600 mt-4 pt-3 text-center text-lg">
+          Invoice Flow
+        </div>
+      </div>
+
+      {/* STEP 1 */}
+      <div className="bg-white p-4 rounded-lg shadow mb-4">
+        <h2 className="font-semibold mb-3">1. Where is the item?</h2>
+        <button
+          className={`w-full p-3 border rounded mb-2 ${
+            itemLocation === "uk" ? "border-black bg-gray-100" : "border-gray-300"
+          }`}
+          onClick={() => {
+            setItemLocation("uk");
+            setClientLocation(null);
+            setPurchaseType(null);
+            setShippingOption(null);
+            setDirectShip(null);
+            setInsuranceLanded(null);
+          }}
+        >
+          Item is in UK
+        </button>
+
+        <button
+          className={`w-full p-3 border rounded ${
+            itemLocation === "outside"
+              ? "border-black bg-gray-100"
+              : "border-gray-300"
+          }`}
+          onClick={() => {
+            setItemLocation("outside");
+            setClientLocation(null);
+            setPurchaseType(null);
+            setShippingOption(null);
+            setDirectShip(null);
+            setInsuranceLanded(null);
+          }}
+        >
+          Item is outside UK
+        </button>
+      </div>
+
+      {/* STEP 2 */}
+      {itemLocation && (
+        <div className="bg-white p-4 rounded-lg shadow mb-4 animate-fadeIn">
+          <h2 className="font-semibold mb-3">2. Where is the client?</h2>
+
+          <button
+            className={`w-full p-3 border rounded mb-2 ${
+              clientLocation === "uk"
+                ? "border-black bg-gray-100"
+                : "border-gray-300"
+            }`}
+            onClick={() => {
+              setClientLocation("uk");
+              setPurchaseType(null);
+              setShippingOption(null);
+              setDirectShip(null);
+              setInsuranceLanded(null);
+            }}
+          >
+            Client is in UK
+          </button>
+
+          <button
+            className={`w-full p-3 border rounded ${
+              clientLocation === "outside"
+                ? "border-black bg-gray-100"
+                : "border-gray-300"
+            }`}
+            onClick={() => {
+              setClientLocation("outside");
+              setPurchaseType(null);
+              setShippingOption(null);
+              setDirectShip(null);
+              setInsuranceLanded(null);
+            }}
+          >
+            Client is outside UK
+          </button>
+        </div>
+      )}
+
+      {/* STEP 3 — UK purchase type */}
+      {itemLocation === "uk" && clientLocation && (
+        <div className="bg-white p-4 rounded-lg shadow mb-4 animate-fadeIn">
+          <h2 className="font-semibold mb-3">3. How is the item purchased?</h2>
+
+          <button
+            onClick={() => setPurchaseType("retail")}
+            className={`w-full p-3 border rounded mb-2 ${
+              purchaseType === "retail" ? "border-black bg-gray-100" : "border-gray-300"
+            }`}
+          >
+            From retail store
+          </button>
+
+          <button
+            onClick={() => setPurchaseType("margin")}
+            className={`w-full p-3 border rounded ${
+              purchaseType === "margin" ? "border-black bg-gray-100" : "border-gray-300"
+            }`}
+          >
+            On UK margin rule
+          </button>
+        </div>
+      )}
+
+      {/* STEP 3 — Outside → UK shipping */}
+      {itemLocation === "outside" && clientLocation === "uk" && (
+        <div className="bg-white p-4 rounded-lg shadow mb-4 animate-fadeIn">
+          <h2 className="font-semibold mb-3">3. Can client ship to other countries?</h2>
+
+          <button
+            onClick={() => {
+              setShippingOption("no");
+              setDirectShip(null);
+              setInsuranceLanded(null);
+            }}
+            className={`w-full p-3 border rounded mb-2 ${
+              shippingOption === "no" ? "border-black bg-gray-100" : "border-gray-300"
+            }`}
+          >
+            No
+          </button>
+
+          <button
+            onClick={() => {
+              setShippingOption("yes");
+              setDirectShip(null);
+              setInsuranceLanded(null);
+            }}
+            className={`w-full p-3 border rounded ${
+              shippingOption === "yes" ? "border-black bg-gray-100" : "border-gray-300"
+            }`}
+          >
+            Yes
+          </button>
+        </div>
+      )}
+
+      {/* STEP 4 — Direct ship */}
+      {shippingOption === "yes" &&
+        itemLocation === "outside" &&
+        clientLocation === "uk" && (
+          <div className="bg-white p-4 rounded-lg shadow mb-4 animate-fadeIn">
+            <h2 className="font-semibold mb-3">
+              4. Can supplier ship directly to client?
+            </h2>
+
+            <button
+              onClick={() => {
+                setDirectShip("no");
+                setInsuranceLanded(null);
+              }}
+              className={`w-full p-3 border rounded mb-2 ${
+                directShip === "no" ? "border-black bg-gray-100" : "border-gray-300"
+              }`}
+            >
+              No
+            </button>
+
+            <button
+              onClick={() => {
+                setDirectShip("yes");
+                setInsuranceLanded(null);
+              }}
+              className={`w-full p-3 border rounded ${
+                directShip === "yes" ? "border-black bg-gray-100" : "border-gray-300"
+              }`}
+            >
+              Yes
+            </button>
+          </div>
+        )}
+
+      {/* STEP 5 — Insurance / landed cost */}
+      {directShip === "yes" &&
+        itemLocation === "outside" &&
+        clientLocation === "uk" &&
+        shippingOption === "yes" && (
+          <div className="bg-white p-4 rounded-lg shadow mb-4 animate-fadeIn">
+            <h2 className="font-semibold mb-3">
+              5. Can supplier provide full insurance & landed cost?
+            </h2>
+
+            <button
+              onClick={() => setInsuranceLanded("no")}
+              className={`w-full p-3 border rounded mb-2 ${
+                insuranceLanded === "no"
+                  ? "border-black bg-gray-100"
+                  : "border-gray-300"
+              }`}
+            >
+              No
+            </button>
+
+            <button
+              onClick={() => setInsuranceLanded("yes")}
+              className={`w-full p-3 border rounded ${
+                insuranceLanded === "yes"
+                  ? "border-black bg-gray-100"
+                  : "border-gray-300"
+              }`}
+            >
+              Yes
+            </button>
+          </div>
+        )}
+
+      {/* FINAL SETTINGS PANEL */}
+      {result && (
+        <div className="bg-gray-100 border-t-4 border-black p-4 rounded-lg shadow animate-fadeIn mb-6">
+
+          <h3 className="font-bold text-lg mb-3">Invoice Settings</h3>
+
+          <div className="space-y-4">
+
+            <div className="bg-white border p-3 rounded shadow-sm">
+              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                Invoice Item Line Detail
               </div>
-
-              <div className="p-4 space-y-4">
-                <div className="border-b pb-4">
-                  <div className="flex items-center mb-3">
-                    <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-bold text-sm mr-3">1</div>
-                    <h2 className="font-semibold text-gray-800">Where is the item?</h2>
-                  </div>
-                  <div className="space-y-2 ml-11">
-                    <button
-                      onClick={() => {
-                        setItemLocation('uk');
-                        setClientLocation(null);
-                        setPurchaseType(null);
-                        setShippingOption(null);
-                        setDirectShip(null);
-                        setInsuranceLanded(null);
-                      }}
-                      className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                        itemLocation === 'uk' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
-                      }`}
-                    >
-                      Item is in UK
-                    </button>
-                    <button
-                      onClick={() => {
-                        setItemLocation('outside');
-                        setClientLocation(null);
-                        setPurchaseType(null);
-                        setShippingOption(null);
-                        setDirectShip(null);
-                        setInsuranceLanded(null);
-                      }}
-                      className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                        itemLocation === 'outside' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
-                      }`}
-                    >
-                      Item is outside UK
-                    </button>
-                  </div>
-                </div>
-
-                {itemLocation && (
-                  <div className="border-b pb-4 animate-fadeIn">
-                    <div className="flex items-center mb-3">
-                      <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-bold text-sm mr-3">2</div>
-                      <h2 className="font-semibold text-gray-800">Where is the client?</h2>
-                    </div>
-                    <div className="space-y-2 ml-11">
-                      <button
-                        onClick={() => {
-                          setClientLocation('uk');
-                          setPurchaseType(null);
-                          setShippingOption(null);
-                          setDirectShip(null);
-                          setInsuranceLanded(null);
-                        }}
-                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                          clientLocation === 'uk' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
-                        }`}
-                      >
-                        Client is in UK
-                      </button>
-                      <button
-                        onClick={() => {
-                          setClientLocation('outside');
-                          setPurchaseType(null);
-                          setShippingOption(null);
-                          setDirectShip(null);
-                          setInsuranceLanded(null);
-                        }}
-                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                          clientLocation === 'outside' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
-                        }`}
-                      >
-                        Client is outside UK
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {itemLocation === 'uk' && clientLocation && (
-                  <div className="pb-4 animate-fadeIn">
-                    <div className="flex items-center mb-3">
-                      <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-bold text-sm mr-3">3</div>
-                      <h2 className="font-semibold text-gray-800">How is item purchased?</h2>
-                    </div>
-                    <div className="space-y-2 ml-11">
-                      <button
-                        onClick={() => setPurchaseType('retail')}
-                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                          purchaseType === 'retail' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
-                        }`}
-                      >
-                        From retail store
-                      </button>
-                      <button
-                        onClick={() => setPurchaseType('margin')}
-                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                          purchaseType === 'margin' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
-                        }`}
-                      >
-                        On UK margin rule
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {itemLocation === 'outside' && clientLocation === 'uk' && (
-                  <div className="border-b pb-4 animate-fadeIn">
-                    <div className="flex items-center mb-3">
-                      <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-bold text-sm mr-3">3</div>
-                      <h2 className="font-semibold text-gray-800">Can client have shipped to other countries?</h2>
-                    </div>
-                    <div className="space-y-2 ml-11">
-                      <button
-                        onClick={() => {
-                          setShippingOption('no');
-                          setDirectShip(null);
-                          setInsuranceLanded(null);
-                        }}
-                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                          shippingOption === 'no' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
-                        }`}
-                      >
-                        No
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShippingOption('yes');
-                          setDirectShip(null);
-                          setInsuranceLanded(null);
-                        }}
-                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                          shippingOption === 'yes' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
-                        }`}
-                      >
-                        Yes
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {itemLocation === 'outside' && clientLocation === 'uk' && shippingOption === 'yes' && (
-                  <div className="border-b pb-4 animate-fadeIn">
-                    <div className="flex items-center mb-3">
-                      <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-bold text-sm mr-3">4</div>
-                      <h2 className="font-semibold text-gray-800">Can item be directly shipped from Supplier to Client?</h2>
-                    </div>
-                    <div className="space-y-2 ml-11">
-                      <button
-                        onClick={() => {
-                          setDirectShip('no');
-                          setInsuranceLanded(null);
-                        }}
-                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                          directShip === 'no' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
-                        }`}
-                      >
-                        No
-                      </button>
-                      <button
-                        onClick={() => {
-                          setDirectShip('yes');
-                          setInsuranceLanded(null);
-                        }}
-                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                          directShip === 'yes' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
-                        }`}
-                      >
-                        Yes
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {itemLocation === 'outside' && clientLocation === 'uk' && shippingOption === 'yes' && directShip === 'yes' && (
-                  <div className="pb-4 animate-fadeIn">
-                    <div className="flex items-center mb-3">
-                      <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-bold text-sm mr-3">5</div>
-                      <h2 className="font-semibold text-gray-800">Can Supplier provide full insurance and landed cost?</h2>
-                    </div>
-                    <div className="space-y-2 ml-11">
-                      <button
-                        onClick={() => setInsuranceLanded('no')}
-                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                          insuranceLanded === 'no' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
-                        }`}
-                      >
-                        No
-                      </button>
-                      <button
-                        onClick={() => setInsuranceLanded('yes')}
-                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                          insuranceLanded === 'yes' ? 'border-black bg-gray-100 font-medium' : 'border-gray-200 hover:border-gray-400'
-                        }`}
-                      >
-                        Yes
-                      </button>
-                    </div>
-                  </div>
-                )}
+              <div className="font-medium whitespace-pre-line">
+                {result.taxLiability}
               </div>
-
-              {result && (
-                <div className="bg-gray-100 border-t-4 border-black p-4 animate-fadeIn">
-                  <h3 className="font-bold text-gray-900 mb-3 text-lg">Invoice Settings:</h3>
-                  
-                  <div className="space-y-3">
-                    <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-                      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Invoice Item Line Detail</div>
-                      <div className="text-gray-900 font-medium whitespace-pre-line">{result.taxLiability}</div>
-                      {result.note && <div className="text-sm text-amber-700 mt-1 italic">{result.note}</div>}
-                    </div>
-                    <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-                      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Brand Theme</div>
-                      <div className="text-gray-900 font-medium">{result.brandTheme}</div>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-                      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Amounts Are</div>
-                      <div className="text-gray-900 font-medium">{result.amountsAre}</div>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-                      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Account Code</div>
-                      <div className="text-gray-900 font-medium text-2xl">{result.accountCode}</div>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-                      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Tax Rate</div>
-                      <div className="text-gray-900 font-medium">{result.taxRate}</div>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-                      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">VAT Reclaim</div>
-                      <div className="text-gray-900 font-medium">{result.vatReclaim}</div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 pt-6 border-t border-gray-300">
-                    <h3 className="font-bold text-gray-900 mb-3 text-lg">Invoice Details:</h3>
-                    
-                    <div className="space-y-3">
-                      <div ref={dropdownRef}>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Customer Name</label>
-                        <div className="relative">
-                          <input
-                            ref={inputRef}
-                            type="text"
-                            value={customerName}
-                            onChange={(e) => handleCustomerInput(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder="Start typing customer name..."
-                            className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none"
-                          />
-                          
-                          {loadingCustomers && (
-                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                              <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                            </div>
-                          )}
-
-                          {dropdownResults.length > 0 && (
-                            <ul className="absolute z-10 bg-white border-2 border-black rounded-lg shadow-lg mt-1 max-h-60 overflow-auto w-full">
-                              {dropdownResults.map((contact, index) => (
-                                <li
-                                  key={index}
-                                  className={`p-3 cursor-pointer transition-colors ${
-                                    index === selectedIndex ? 'bg-black text-white' : 'hover:bg-gray-100'
-                                  }`}
-                                  onClick={() => selectCustomer(contact)}
-                                  onMouseEnter={() => setSelectedIndex(index)}
-                                >
-                                  {contact.Name}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-
-                          {isSearchActive && !loadingCustomers && customerName.length >= 2 && dropdownResults.length === 0 && (
-                            <div className="absolute z-10 bg-white border-2 border-gray-300 rounded-lg shadow-lg mt-1 p-3 w-full text-gray-500 text-sm">
-                              No customers found. Try a different search.
-                            </div>
-                          )}
-                        </div>
-                        {errors.customerName && <p className="text-red-600 text-sm mt-1">{errors.customerName}</p>}
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Item Description</label>
-                        <input 
-                          type="text" 
-                          value={itemDescription} 
-                          onChange={(e) => setItemDescription(e.target.value)} 
-                          placeholder="Enter item description" 
-                          className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none" 
-                        />
-                        {errors.itemDescription && <p className="text-red-600 text-sm mt-1">{errors.itemDescription}</p>}
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Price</label>
-                        <div className="flex gap-2">
-                          <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-28 p-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none bg-white">
-                            <option value="GBP">£ GBP</option>
-                            <option value="USD">$ USD</option>
-                            <option value="EUR">€ EUR</option>
-                            <option value="CHF">CHF</option>
-                            <option value="JPY">¥ JPY</option>
-                          </select>
-                          <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" step="0.01" min="0" className="flex-1 p-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none" />
-                        </div>
-                        {errors.price && <p className="text-red-600 text-sm mt-1">{errors.price}</p>}
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Due Date</label>
-                        <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none" />
-                        {errors.dueDate && <p className="text-red-600 text-sm mt-1">{errors.dueDate}</p>}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 mt-4">
-                    <button 
-                      onClick={sendToXero} 
-                      disabled={sending || !isFormValid} 
-                      className={`w-full p-3 rounded-lg font-medium transition-colors flex items-center justify-center ${
-                        sending || !isFormValid ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'
-                      }`}
-                    >
-                      {sending ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                          Sending to Xero...
-                        </>
-                      ) : (
-                        'Create Invoice in Xero'
-                      )}
-                    </button>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button onClick={copyToClipboard} className="bg-gray-800 text-white p-3 rounded-lg font-medium hover:bg-gray-700 transition-colors flex items-center justify-center">
-                        {copied ? (<><Check className="w-4 h-4 mr-2" />Copied!</>) : (<><Copy className="w-4 h-4 mr-2" />Copy</>)}
-                      </button>
-                      <button onClick={reset} className="bg-black text-white p-3 rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center">
-                        <Home className="w-4 h-4 mr-2" />Start Over
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              {result.note && (
+                <div className="text-sm text-amber-700 mt-2 italic">{result.note}</div>
               )}
             </div>
-          </div>
-        </div>
-      );
-    };
 
-    ReactDOM.render(<InvoiceFlow />, document.getElementById('root'));
+            <div className="bg-white border p-3 rounded shadow-sm">
+              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                Brand Theme
+              </div>
+              <div className="font-medium">{result.brandTheme}</div>
+            </div>
+
+            <div className="bg-white border p-3 rounded shadow-sm">
+              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                Amounts Are
+              </div>
+              <div className="font-medium">{result.amountsAre}</div>
+            </div>
+
+            <div className="bg-white border p-3 rounded shadow-sm">
+              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                Account Code
+              </div>
+              <div className="font-medium text-xl">{result.accountCode}</div>
+            </div>
+
+            <div className="bg-white border p-3 rounded shadow-sm">
+              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                Tax Rate
+              </div>
+              <div className="font-medium">{result.taxRate}</div>
+            </div>
+
+            <div className="bg-white border p-3 rounded shadow-sm">
+              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                VAT Reclaim
+              </div>
+              <div className="font-medium">{result.vatReclaim}</div>
+            </div>
+          </div>
+
+          {/* INVOICE DETAILS FORM */}
+          <div className="mt-6 border-t pt-4">
+            <h3 className="font-bold text-lg mb-3">Invoice Details</h3>
+
+            {/* Customer Name */}
+            <div className="mb-4" ref={dropdownRef}>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                Customer Name
+              </label>
+
+              <div className="relative">
+                <input
+                  className="w-full p-3 border-2 rounded focus:outline-none focus:border-black"
+                  value={customerName}
+                  placeholder="Start typing customer name…"
+                  onChange={(e) => handleCustomerInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (!dropdownResults.length) return;
+
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setSelectedIndex((i) =>
+                        i < dropdownResults.length - 1 ? i + 1 : i
+                      );
+                    }
+
+                    if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setSelectedIndex((i) => (i > 0 ? i - 1 : 0));
+                    }
+
+                    if (e.key === "Enter" && selectedIndex >= 0) {
+                      e.preventDefault();
+                      selectCustomer(dropdownResults[selectedIndex]);
+                    }
+
+                    if (e.key === "Escape") {
+                      setDropdownResults([]);
+                      setIsSearchActive(false);
+                    }
+                  }}
+                />
+
+                {loadingCustomers && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+
+                {dropdownResults.length > 0 && (
+                  <ul className="absolute z-10 mt-1 bg-white border-2 border-black rounded-lg max-h-48 overflow-auto w-full shadow">
+                    {dropdownResults.map((c, i) => (
+                      <li
+                        key={i}
+                        className={`p-3 cursor-pointer ${
+                          selectedIndex === i
+                            ? "bg-black text-white"
+                            : "hover:bg-gray-200"
+                        }`}
+                        onClick={() => selectCustomer(c)}
+                        onMouseEnter={() => setSelectedIndex(i)}
+                      >
+                        {c.Name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {errors.customerName && (
+                <p className="text-red-600 text-sm mt-1">{errors.customerName}</p>
+              )}
+            </div>
+
+            {/* Item Description */}
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                Item Description
+              </label>
+              <input
+                className="w-full p-3 border-2 rounded focus:outline-none focus:border-black"
+                value={itemDescription}
+                onChange={(e) => setItemDescription(e.target.value)}
+              />
+              {errors.itemDescription && (
+                <p className="text-red-600 text-sm mt-1">{errors.itemDescription}</p>
+              )}
+            </div>
+
+            {/* Price */}
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                Price
+              </label>
+
+              <div className="flex gap-2">
+                <select
+                  className="p-3 border-2 rounded bg-white focus:border-black"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                >
+                  <option value="GBP">£ GBP</option>
+                  <option value="USD">$ USD</option>
+                  <option value="EUR">€ EUR</option>
+                  <option value="CHF">CHF</option>
+                  <option value="JPY">¥ JPY</option>
+                </select>
+
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="flex-1 p-3 border-2 rounded focus:outline-none focus:border-black"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                />
+              </div>
+
+              {errors.price && <p className="text-red-600 text-sm mt-1">{errors.price}</p>}
+            </div>
+
+            {/* Due Date */}
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                Due Date
+              </label>
+              <input
+                type="date"
+                className="w-full p-3 border-2 rounded focus:outline-none focus:border-black"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+              {errors.dueDate && <p className="text-red-600 text-sm mt-1">{errors.dueDate}</p>}
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <button
+            onClick={sendToXero}
+            disabled={sending || !isFormValid}
+            className={`w-full mt-4 p-3 rounded font-medium flex justify-center items-center ${
+              sending || !isFormValid
+                ? "bg-gray-400 text-gray-200"
+                : "bg-green-600 text-white hover:bg-green-700"
+            }`}
+          >
+            {sending ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Sending…
+              </>
+            ) : (
+              "Create Invoice in Xero"
+            )}
+          </button>
+
+          <button
+            onClick={reset}
+            className="w-full mt-2 p-3 rounded font-medium bg-black text-white hover:bg-gray-800"
+          >
+            Start Over
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* --------------------------------------------------
+      RENDER APP
+-------------------------------------------------- */
+ReactDOM.render(<InvoiceFlow />, document.getElementById("root"));
+
   </script>
 </body>
 </html>
+
