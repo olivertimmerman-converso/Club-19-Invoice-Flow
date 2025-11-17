@@ -539,63 +539,77 @@ const InvoiceFlow = () => {
             </button>
           </div>
         )}
+{/* FINAL SETTINGS PANEL */}
+{result && (
+  <div className="bg-gray-100 border-t-4 border-black p-4 rounded-lg shadow animate-fadeIn mb-6">
 
-      {/* FINAL SETTINGS PANEL */}
-      {result && (
-        <div className="bg-gray-100 border-t-4 border-black p-4 rounded-lg shadow animate-fadeIn mb-6">
+    <h3 className="font-bold text-lg mb-3">Invoice Settings</h3>
 
-          <h3 className="font-bold text-lg mb-3">Invoice Settings</h3>
+    <div className="space-y-4">
 
-          <div className="space-y-4">
+      {/* Invoice Item Line Detail */}
+      <div className="bg-white border p-3 rounded shadow-sm">
+        <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+          Invoice Item Line Detail
+        </div>
+        <div className="font-medium whitespace-pre-line">
+          {result.taxLiability}
+        </div>
+        {result.note && (
+          <div className="text-sm text-amber-700 mt-2 italic">{result.note}</div>
+        )}
+      </div>
 
-            <div className="bg-white border p-3 rounded shadow-sm">
-              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
-                Invoice Item Line Detail
-              </div>
-              <div className="font-medium whitespace-pre-line">
-                {result.taxLiability}
-              </div>
-              {result.note && (
-                <div className="text-sm text-amber-700 mt-2 italic">{result.note}</div>
-              )}
-            </div>
+      {/* Brand Theme */}
+      <div className="bg-white border p-3 rounded shadow-sm">
+        <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+          Brand Theme
+        </div>
+        <div className="font-medium">{result.brandTheme}</div>
+      </div>
 
-            <div className="bg-white border p-3 rounded shadow-sm">
-              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
-                Brand Theme
-              </div>
-              <div className="font-medium">{result.brandTheme}</div>
-            </div>
+      {/* Amounts Are */}
+      <div className="bg-white border p-3 rounded shadow-sm">
+        <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+          Amounts Are
+        </div>
+        <div className="font-medium">{result.amountsAre}</div>
+      </div>
 
-            <div className="bg-white border p-3 rounded shadow-sm">
-              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
-                Amounts Are
-              </div>
-              <div className="font-medium">{result.amountsAre}</div>
-            </div>
+      {/* Account Code */}
+      <div className="bg-white border p-3 rounded shadow-sm">
+        <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+          Account Code
+        </div>
+        <div className="font-medium text-xl">{result.accountCode}</div>
+      </div>
 
-            <div className="bg-white border p-3 rounded shadow-sm">
-              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
-                Account Code
-              </div>
-              <div className="font-medium text-xl">{result.accountCode}</div>
-            </div>
+      {/* Xero Tax Code */}
+      <div className="bg-white border p-3 rounded shadow-sm">
+        <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+          Xero Tax Code
+        </div>
+        <div className="font-medium">{result.taxType}</div>
+      </div>
 
-            <div className="bg-white border p-3 rounded shadow-sm">
-              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
-                Tax Rate
-              </div>
-<div className="font-medium">{result.taxType}</div>
-            </div>
+      {/* Friendly Tax Description */}
+      <div className="bg-white border p-3 rounded shadow-sm">
+        <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+          Friendly Tax Description
+        </div>
+        <div className="font-medium">{result.taxLabel}</div>
+      </div>
 
-            <div className="bg-white border p-3 rounded shadow-sm">
-              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
-                VAT Reclaim
-              </div>
-              <div className="font-medium">{result.vatReclaim}</div>
-            </div>
-          </div>
-
+      {/* VAT Reclaim */}
+      <div className="bg-white border p-3 rounded shadow-sm">
+        <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+          VAT Reclaim
+        </div>
+        <div className="font-medium">{result.vatReclaim}</div>
+      </div>
+    </div>
+  </div>
+)}
           {/* INVOICE DETAILS FORM */}
           <div className="mt-6 border-t pt-4">
             <h3 className="font-bold text-lg mb-3">Invoice Details</h3>
