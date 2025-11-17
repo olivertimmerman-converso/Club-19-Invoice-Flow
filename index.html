@@ -150,6 +150,8 @@ const InvoiceFlow = () => {
         amountsAre: "Inclusive",
         accountCode: "425",
         taxType: TAX_20,
+        taxLabel: "20% VAT on Income",
+        taxRate: "20",
         vatReclaim: "Business reclaims VAT from original purchase"
       },
 
@@ -159,6 +161,8 @@ const InvoiceFlow = () => {
         amountsAre: "Inclusive",
         accountCode: "424",
         taxType: TAX_ZERO,
+        taxLabel: "Zero Rated Income 0%",
+        taxRate: "0",
         vatReclaim: "None"
       },
 
@@ -169,6 +173,8 @@ const InvoiceFlow = () => {
         amountsAre: "Exclusive",
         accountCode: "423",
         taxType: TAX_ZERO,
+        taxLabel: "Zero Rated Income 0%",
+        taxRate: "0",
         vatReclaim: "Business reclaims VAT from original purchase"
       },
 
@@ -178,6 +184,8 @@ const InvoiceFlow = () => {
         amountsAre: "Exclusive",
         accountCode: "423",
         taxType: TAX_ZERO,
+        taxLabel: "Zero Rated Income 0%",
+        taxRate: "0",
         vatReclaim: "None"
       }
     };
@@ -202,6 +210,8 @@ const InvoiceFlow = () => {
         amountsAre: "Inclusive",
         accountCode: "425",
         taxType: TAX_20,
+        taxLabel: "20% VAT on Income",
+        taxRate: "20",
         vatReclaim: "None"
       };
     }
@@ -219,6 +229,8 @@ const InvoiceFlow = () => {
         amountsAre: "Inclusive",
         accountCode: landed ? "423" : "425",
         taxType: landed ? TAX_ZERO : TAX_20,
+        taxLabel: landed ? "Zero Rated Income 0%" : "20% VAT on Income",
+        taxRate: landed ? "0" : "20",
         vatReclaim: "None"
       };
     }
@@ -235,6 +247,8 @@ const InvoiceFlow = () => {
       amountsAre: "Inclusive",
       accountCode: "423",
       taxType: TAX_ZERO,
+      taxLabel: "Zero Rated Income 0%",
+      taxRate: "0",
       vatReclaim: "None"
     };
   }
@@ -261,6 +275,7 @@ const InvoiceFlow = () => {
     const invoiceData = {
       accountCode: result.accountCode,
       taxRate: result.taxRate,
+      taxType: result.taxType,
       brandTheme: result.brandTheme,
       amountsAre: result.amountsAre,
       taxLiability: result.taxLiability,
@@ -319,7 +334,7 @@ const InvoiceFlow = () => {
           UI RENDER
   -------------------------------------------------- */
   return (
-    <div className="max-w-xl mx-auto py-8">
+    <div className="max-w-xl mx-auto py-8 px-4">
 
       {/* HEADER */}
       <div className="bg-black text-white p-6 rounded-lg shadow mb-6">
@@ -539,77 +554,78 @@ const InvoiceFlow = () => {
             </button>
           </div>
         )}
-{/* FINAL SETTINGS PANEL */}
-{result && (
-  <div className="bg-gray-100 border-t-4 border-black p-4 rounded-lg shadow animate-fadeIn mb-6">
 
-    <h3 className="font-bold text-lg mb-3">Invoice Settings</h3>
+      {/* FINAL SETTINGS PANEL */}
+      {result && (
+        <div className="bg-gray-100 border-t-4 border-black p-4 rounded-lg shadow animate-fadeIn mb-6">
 
-    <div className="space-y-4">
+          <h3 className="font-bold text-lg mb-3">Invoice Settings</h3>
 
-      {/* Invoice Item Line Detail */}
-      <div className="bg-white border p-3 rounded shadow-sm">
-        <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
-          Invoice Item Line Detail
-        </div>
-        <div className="font-medium whitespace-pre-line">
-          {result.taxLiability}
-        </div>
-        {result.note && (
-          <div className="text-sm text-amber-700 mt-2 italic">{result.note}</div>
-        )}
-      </div>
+          <div className="space-y-4">
 
-      {/* Brand Theme */}
-      <div className="bg-white border p-3 rounded shadow-sm">
-        <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
-          Brand Theme
-        </div>
-        <div className="font-medium">{result.brandTheme}</div>
-      </div>
+            {/* Invoice Item Line Detail */}
+            <div className="bg-white border p-3 rounded shadow-sm">
+              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                Invoice Item Line Detail
+              </div>
+              <div className="font-medium whitespace-pre-line">
+                {result.taxLiability}
+              </div>
+              {result.note && (
+                <div className="text-sm text-amber-700 mt-2 italic">{result.note}</div>
+              )}
+            </div>
 
-      {/* Amounts Are */}
-      <div className="bg-white border p-3 rounded shadow-sm">
-        <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
-          Amounts Are
-        </div>
-        <div className="font-medium">{result.amountsAre}</div>
-      </div>
+            {/* Brand Theme */}
+            <div className="bg-white border p-3 rounded shadow-sm">
+              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                Brand Theme
+              </div>
+              <div className="font-medium">{result.brandTheme}</div>
+            </div>
 
-      {/* Account Code */}
-      <div className="bg-white border p-3 rounded shadow-sm">
-        <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
-          Account Code
-        </div>
-        <div className="font-medium text-xl">{result.accountCode}</div>
-      </div>
+            {/* Amounts Are */}
+            <div className="bg-white border p-3 rounded shadow-sm">
+              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                Amounts Are
+              </div>
+              <div className="font-medium">{result.amountsAre}</div>
+            </div>
 
-      {/* Xero Tax Code */}
-      <div className="bg-white border p-3 rounded shadow-sm">
-        <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
-          Xero Tax Code
-        </div>
-        <div className="font-medium">{result.taxType}</div>
-      </div>
+            {/* Account Code */}
+            <div className="bg-white border p-3 rounded shadow-sm">
+              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                Account Code
+              </div>
+              <div className="font-medium text-xl">{result.accountCode}</div>
+            </div>
 
-      {/* Friendly Tax Description */}
-      <div className="bg-white border p-3 rounded shadow-sm">
-        <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
-          Friendly Tax Description
-        </div>
-        <div className="font-medium">{result.taxLabel}</div>
-      </div>
+            {/* Xero Tax Code */}
+            <div className="bg-white border p-3 rounded shadow-sm">
+              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                Xero Tax Code
+              </div>
+              <div className="font-medium">{result.taxType}</div>
+            </div>
 
-      {/* VAT Reclaim */}
-      <div className="bg-white border p-3 rounded shadow-sm">
-        <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
-          VAT Reclaim
-        </div>
-        <div className="font-medium">{result.vatReclaim}</div>
-      </div>
-    </div>
-  </div>
-)}
+            {/* Friendly Tax Description */}
+            <div className="bg-white border p-3 rounded shadow-sm">
+              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                Friendly Tax Description
+              </div>
+              <div className="font-medium">{result.taxLabel}</div>
+            </div>
+
+            {/* VAT Reclaim */}
+            <div className="bg-white border p-3 rounded shadow-sm">
+              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                VAT Reclaim
+              </div>
+              <div className="font-medium">{result.vatReclaim}</div>
+            </div>
+
+          </div>
+
           {/* INVOICE DETAILS FORM */}
           <div className="mt-6 border-t pt-4">
             <h3 className="font-bold text-lg mb-3">Invoice Details</h3>
@@ -786,4 +802,3 @@ ReactDOM.render(<InvoiceFlow />, document.getElementById("root"));
   </script>
 </body>
 </html>
-
