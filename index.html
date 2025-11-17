@@ -151,7 +151,6 @@ const InvoiceFlow = () => {
         accountCode: "425",
         taxType: TAX_20,
         taxLabel: "20% VAT on Income",
-        taxRate: "20",
         vatReclaim: "Business reclaims VAT from original purchase"
       },
 
@@ -162,7 +161,6 @@ const InvoiceFlow = () => {
         accountCode: "424",
         taxType: TAX_ZERO,
         taxLabel: "Zero Rated Income 0%",
-        taxRate: "0",
         vatReclaim: "None"
       },
 
@@ -174,7 +172,6 @@ const InvoiceFlow = () => {
         accountCode: "423",
         taxType: TAX_ZERO,
         taxLabel: "Zero Rated Income 0%",
-        taxRate: "0",
         vatReclaim: "Business reclaims VAT from original purchase"
       },
 
@@ -185,7 +182,6 @@ const InvoiceFlow = () => {
         accountCode: "423",
         taxType: TAX_ZERO,
         taxLabel: "Zero Rated Income 0%",
-        taxRate: "0",
         vatReclaim: "None"
       }
     };
@@ -211,7 +207,6 @@ const InvoiceFlow = () => {
         accountCode: "425",
         taxType: TAX_20,
         taxLabel: "20% VAT on Income",
-        taxRate: "20",
         vatReclaim: "None"
       };
     }
@@ -230,7 +225,6 @@ const InvoiceFlow = () => {
         accountCode: landed ? "423" : "425",
         taxType: landed ? TAX_ZERO : TAX_20,
         taxLabel: landed ? "Zero Rated Income 0%" : "20% VAT on Income",
-        taxRate: landed ? "0" : "20",
         vatReclaim: "None"
       };
     }
@@ -248,7 +242,6 @@ const InvoiceFlow = () => {
       accountCode: "423",
       taxType: TAX_ZERO,
       taxLabel: "Zero Rated Income 0%",
-      taxRate: "0",
       vatReclaim: "None"
     };
   }
@@ -274,8 +267,13 @@ const InvoiceFlow = () => {
 
     const invoiceData = {
       accountCode: result.accountCode,
-      taxRate: result.taxRate,
+
+      // FIX: Xero must receive taxType only (OUTPUT2 or ZERORATEDOUTPUT)
       taxType: result.taxType,
+
+      // FIX: Include taxLabel only for human readability in Make (NOT used by Xero)
+      taxLabel: result.taxLabel,
+
       brandTheme: result.brandTheme,
       amountsAre: result.amountsAre,
       taxLiability: result.taxLiability,
