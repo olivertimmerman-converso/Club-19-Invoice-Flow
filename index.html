@@ -9,7 +9,7 @@
   <script
     async
     crossorigin="anonymous"
-    data-clerk-publishable-key="pk_test_dGFsZW50ZWQtcG9zc3VtLTc5LmNsZXJrLmFjY291bnRzLmRldiQ"
+    data-clerk-publishable-key="pk_live_Y2xlcmsuY29udmVyc28udWsk"
     data-clerk-frontend-api="clerk.converso.uk"
     src="https://clerk.converso.uk/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
   ></script>
@@ -44,7 +44,7 @@
 /* --------------------------------------------------
       CLERK AUTHENTICATION & ALLOWED EMAILS
 -------------------------------------------------- */
-const CLERK_PUBLISHABLE_KEY = "pk_test_dGFsZW50ZWQtcG9zc3VtLTc5LmNsZXJrLmFjY291bnRzLmRldiQ";
+const CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsuY29udmVyc28udWsk";
 
 const ALLOWED_EMAILS = [
   "sophie@club19london.com",
@@ -964,43 +964,41 @@ const App = () => {
   const [isAllowed, setIsAllowed] = useState(false);
 
   useEffect(() => {
-    const initClerk = async () => {
+    const init = async () => {
       try {
-        const clerk = window.Clerk;
-        await clerk.load();
+        await window.Clerk.load();
+        const user = window.Clerk.user;
+        setClerk(window.Clerk);
+        setUser(user);
 
-        setClerk(clerk);
-
-        if (clerk.user) {
-          setUser(clerk.user);
-
-          const userEmail = clerk.user.primaryEmailAddress?.emailAddress;
-          const allowed = ALLOWED_EMAILS.includes(userEmail);
-          setIsAllowed(allowed);
+        if (user) {
+          const email = user.primaryEmailAddress?.emailAddress;
+          setIsAllowed(ALLOWED_EMAILS.includes(email));
 
           // Log user authentication event
+          const allowed = ALLOWED_EMAILS.includes(email);
           if (allowed) {
             await logAuditEvent("USER_LOGIN_SUCCESS", {
               loginTime: new Date().toISOString(),
               accessGranted: true
-            }, clerk.user);
+            }, user);
           } else {
             await logAuditEvent("USER_LOGIN_DENIED", {
               loginTime: new Date().toISOString(),
               accessGranted: false,
               reason: "Email not in allowed list"
-            }, clerk.user);
+            }, user);
           }
         }
 
         setLoading(false);
-      } catch (error) {
-        console.error("Clerk initialization error:", error);
+      } catch (err) {
+        console.error("Clerk failed to load:", err);
         setLoading(false);
       }
     };
 
-    initClerk();
+    init();
   }, []);
 
   if (loading) {
