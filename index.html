@@ -265,6 +265,15 @@ const InvoiceFlow = () => {
 
     setSending(true);
 
+    // Map UI values to Xero's LineAmountTypes API values
+    const lineAmountTypeMap = {
+      "Inclusive": "Inclusive",
+      "Exclusive": "Exclusive",
+      "No tax": "NoTax",
+      "NoTax": "NoTax",
+      "None": "NoTax"
+    };
+
     const invoiceData = {
       accountCode: result.accountCode,
 
@@ -276,6 +285,10 @@ const InvoiceFlow = () => {
 
       brandTheme: result.brandTheme,
       amountsAre: result.amountsAre,
+
+      // LineAmountTypes field for Xero API
+      lineAmountTypes: lineAmountTypeMap[result.amountsAre],
+
       taxLiability: result.taxLiability,
       vatReclaim: result.vatReclaim,
       customerName,
