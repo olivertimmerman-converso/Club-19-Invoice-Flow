@@ -6,6 +6,9 @@
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
   <title>Club 19 London - Invoice Flow</title>
 
+  <!-- Clerk.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" crossorigin="anonymous"></script>
+
   <!-- React + Babel -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -34,11 +37,58 @@
   <script type="text/babel">
 
 /* --------------------------------------------------
+      CLERK AUTHENTICATION & ALLOWED EMAILS
+-------------------------------------------------- */
+const CLERK_PUBLISHABLE_KEY = "pk_test_dGFsZW50ZWQtcG9zc3VtLTc5LmNsZXJrLmFjY291bnRzLmRldiQ";
+
+const ALLOWED_EMAILS = [
+  "sophie@club19london.com",
+  "hope@club19london.com",
+  "maryclair@club19london.com",
+  "oliver@converso.uk",
+  "alys@sketch24ltd.com"
+];
+
+/* --------------------------------------------------
+      AUDIT LOGGING SYSTEM
+-------------------------------------------------- */
+const AUDIT_LOG_WEBHOOK = "https://hook.eu2.make.com/YOUR_AUDIT_WEBHOOK_URL_HERE";
+
+const logAuditEvent = async (eventType, eventData, user) => {
+  try {
+    const auditPayload = {
+      eventType,
+      timestamp: new Date().toISOString(),
+      user: {
+        email: user?.primaryEmailAddress?.emailAddress || "unknown",
+        userId: user?.id || "unknown",
+        firstName: user?.firstName || "",
+        lastName: user?.lastName || ""
+      },
+      eventData,
+      sessionId: user?.id + "_" + Date.now(),
+      userAgent: navigator.userAgent,
+      url: window.location.href
+    };
+
+    await fetch(AUDIT_LOG_WEBHOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(auditPayload)
+    });
+
+    console.log(`[AUDIT] ${eventType}:`, auditPayload);
+  } catch (error) {
+    console.error("Audit logging failed:", error);
+  }
+};
+
+/* --------------------------------------------------
       MAIN INVOICE COMPONENT
 -------------------------------------------------- */
 const { useState, useEffect, useRef } = React;
 
-const InvoiceFlow = () => {
+const InvoiceFlow = ({ clerk, user }) => {
 
   /* ---------------- STATE ---------------- */
   const [itemLocation, setItemLocation] = useState(null);
@@ -301,6 +351,18 @@ const InvoiceFlow = () => {
     };
 
     try {
+      // Log invoice creation attempt
+      await logAuditEvent("INVOICE_CREATE_ATTEMPT", {
+        customerName,
+        itemDescription,
+        price: parseFloat(price),
+        currency,
+        dueDate,
+        accountCode: result.accountCode,
+        taxType: result.taxType,
+        brandTheme: result.brandTheme
+      }, user);
+
       const resp = await fetch(
         "https://hook.eu2.make.com/6yd7c1j1we7wzujw7vdne6cr6wd8jp9b",
         {
@@ -312,13 +374,40 @@ const InvoiceFlow = () => {
 
       if (!resp.ok) throw new Error("Xero creation failed");
 
+      // Log successful invoice creation
+      await logAuditEvent("INVOICE_CREATE_SUCCESS", {
+        customerName,
+        itemDescription,
+        price: parseFloat(price),
+        currency,
+        accountCode: result.accountCode
+      }, user);
+
       alert("Invoice created successfully in Xero!");
       setSending(false);
 
     } catch (err) {
+      // Log invoice creation failure
+      await logAuditEvent("INVOICE_CREATE_FAILURE", {
+        customerName,
+        error: err.message
+      }, user);
+
       alert("Error: " + err.message);
       setSending(false);
     }
+  };
+
+  /* --------------------------------------------------
+          LOGOUT HANDLER
+  -------------------------------------------------- */
+  const handleLogout = async () => {
+    await logAuditEvent("USER_LOGOUT", {
+      logoutTime: new Date().toISOString()
+    }, user);
+
+    await clerk.signOut();
+    window.location.reload();
   };
 
   /* --------------------------------------------------
@@ -350,14 +439,25 @@ const InvoiceFlow = () => {
 
       {/* HEADER */}
       <div className="bg-black text-white p-6 rounded-lg shadow mb-6">
-        <div className="text-center">
-          <div className="font-serif tracking-widest text-2xl">
-            CLUB<span className="text-3xl">19</span>
+        <div className="flex justify-between items-start">
+          <div className="flex-1 text-center">
+            <div className="font-serif tracking-widest text-2xl">
+              CLUB<span className="text-3xl">19</span>
+            </div>
+            <div className="font-serif tracking-widest text-sm">LONDON</div>
           </div>
-          <div className="font-serif tracking-widest text-sm">LONDON</div>
+          <button
+            onClick={handleLogout}
+            className="text-xs bg-white text-black px-3 py-1 rounded hover:bg-gray-200 transition"
+          >
+            Logout
+          </button>
         </div>
         <div className="border-t border-gray-600 mt-4 pt-3 text-center text-lg">
           Invoice Flow
+        </div>
+        <div className="text-center text-xs text-gray-400 mt-2">
+          Logged in as {user.primaryEmailAddress?.emailAddress}
         </div>
       </div>
 
@@ -807,9 +907,171 @@ const InvoiceFlow = () => {
 };
 
 /* --------------------------------------------------
-      RENDER APP
+      ACCESS DENIED COMPONENT
 -------------------------------------------------- */
-ReactDOM.render(<InvoiceFlow />, document.getElementById("root"));
+const AccessDenied = ({ clerk, userEmail }) => {
+  const handleLogout = async () => {
+    await clerk.signOut();
+    window.location.reload();
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+        <div className="mb-6">
+          <div className="font-serif tracking-widest text-3xl mb-2">
+            CLUB<span className="text-4xl">19</span>
+          </div>
+          <div className="font-serif tracking-widest text-sm">LONDON</div>
+        </div>
+
+        <div className="mb-6">
+          <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-4">
+            You do not have access to this application.
+          </p>
+          <p className="text-sm text-gray-500">
+            Logged in as: <span className="font-mono">{userEmail}</span>
+          </p>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          className="w-full bg-black text-white py-3 px-4 rounded font-medium hover:bg-gray-800 transition"
+        >
+          Sign Out
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/* --------------------------------------------------
+      AUTH WRAPPER & APP INITIALIZATION
+-------------------------------------------------- */
+const App = () => {
+  const [loading, setLoading] = useState(true);
+  const [clerk, setClerk] = useState(null);
+  const [user, setUser] = useState(null);
+  const [isAllowed, setIsAllowed] = useState(false);
+
+  useEffect(() => {
+    const initClerk = async () => {
+      try {
+        const clerkInstance = new window.Clerk(CLERK_PUBLISHABLE_KEY);
+        await clerkInstance.load();
+
+        setClerk(clerkInstance);
+
+        if (clerkInstance.user) {
+          setUser(clerkInstance.user);
+
+          const userEmail = clerkInstance.user.primaryEmailAddress?.emailAddress;
+          const allowed = ALLOWED_EMAILS.includes(userEmail);
+          setIsAllowed(allowed);
+
+          // Log user authentication event
+          if (allowed) {
+            await logAuditEvent("USER_LOGIN_SUCCESS", {
+              loginTime: new Date().toISOString(),
+              accessGranted: true
+            }, clerkInstance.user);
+          } else {
+            await logAuditEvent("USER_LOGIN_DENIED", {
+              loginTime: new Date().toISOString(),
+              accessGranted: false,
+              reason: "Email not in allowed list"
+            }, clerkInstance.user);
+          }
+        }
+
+        setLoading(false);
+      } catch (error) {
+        console.error("Clerk initialization error:", error);
+        setLoading(false);
+      }
+    };
+
+    initClerk();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-black border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!clerk) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center text-red-600">
+          <p>Failed to load authentication. Please refresh the page.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+          <div className="text-center mb-6">
+            <div className="font-serif tracking-widest text-3xl mb-2">
+              CLUB<span className="text-4xl">19</span>
+            </div>
+            <div className="font-serif tracking-widest text-sm mb-4">LONDON</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Invoice Flow</h2>
+            <p className="text-gray-600">Please sign in to continue</p>
+          </div>
+          <div id="clerk-signin"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAllowed) {
+    return <AccessDenied clerk={clerk} userEmail={user.primaryEmailAddress?.emailAddress} />;
+  }
+
+  return <InvoiceFlow clerk={clerk} user={user} />;
+};
+
+/* --------------------------------------------------
+      RENDER APP WITH CLERK SIGN-IN
+-------------------------------------------------- */
+const renderApp = async () => {
+  const rootElement = document.getElementById("root");
+  ReactDOM.render(<App />, rootElement);
+
+  // Mount Clerk SignIn component if needed
+  const checkAndMountSignIn = setInterval(() => {
+    const signInContainer = document.getElementById("clerk-signin");
+    if (signInContainer && window.Clerk) {
+      window.Clerk(CLERK_PUBLISHABLE_KEY).then((clerk) => {
+        clerk.mountSignIn(signInContainer, {
+          appearance: {
+            elements: {
+              rootBox: "w-full",
+              card: "shadow-none"
+            }
+          },
+          signUpUrl: false // Disable sign up, only allow sign in
+        });
+      });
+      clearInterval(checkAndMountSignIn);
+    }
+  }, 100);
+};
+
+renderApp();
 
   </script>
 </body>
