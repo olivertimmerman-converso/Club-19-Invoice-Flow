@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
   <title>Club 19 London - Invoice Flow</title>
 
   <!-- Clerk.js -->
@@ -11,6 +10,7 @@
     async
     crossorigin="anonymous"
     data-clerk-publishable-key="pk_test_dGFsZW50ZWQtcG9zc3VtLTc5LmNsZXJrLmFjY291bnRzLmRldiQ"
+    data-clerk-frontend-api="clerk.converso.uk"
     src="https://clerk.converso.uk/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
   ></script>
 
@@ -966,7 +966,10 @@ const App = () => {
   useEffect(() => {
     const initClerk = async () => {
       try {
-        const clerkInstance = new window.Clerk(CLERK_PUBLISHABLE_KEY);
+        const clerkInstance = new window.Clerk({
+          publishableKey: CLERK_PUBLISHABLE_KEY,
+          frontendApi: "clerk.converso.uk"
+        });
         await clerkInstance.load();
 
         setClerk(clerkInstance);
