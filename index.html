@@ -966,18 +966,15 @@ const App = () => {
   useEffect(() => {
     const initClerk = async () => {
       try {
-        const clerkInstance = new window.Clerk({
-          publishableKey: CLERK_PUBLISHABLE_KEY,
-          frontendApi: "clerk.converso.uk"
-        });
-        await clerkInstance.load();
+        const clerk = window.Clerk;
+        await clerk.load();
 
-        setClerk(clerkInstance);
+        setClerk(clerk);
 
-        if (clerkInstance.user) {
-          setUser(clerkInstance.user);
+        if (clerk.user) {
+          setUser(clerk.user);
 
-          const userEmail = clerkInstance.user.primaryEmailAddress?.emailAddress;
+          const userEmail = clerk.user.primaryEmailAddress?.emailAddress;
           const allowed = ALLOWED_EMAILS.includes(userEmail);
           setIsAllowed(allowed);
 
@@ -986,13 +983,13 @@ const App = () => {
             await logAuditEvent("USER_LOGIN_SUCCESS", {
               loginTime: new Date().toISOString(),
               accessGranted: true
-            }, clerkInstance.user);
+            }, clerk.user);
           } else {
             await logAuditEvent("USER_LOGIN_DENIED", {
               loginTime: new Date().toISOString(),
               accessGranted: false,
               reason: "Email not in allowed list"
-            }, clerkInstance.user);
+            }, clerk.user);
           }
         }
 
@@ -1063,11 +1060,8 @@ const renderApp = async () => {
   const checkAndMountSignIn = setInterval(() => {
     const signInContainer = document.getElementById("clerk-signin");
     if (signInContainer && window.Clerk) {
-      window.Clerk({
-        publishableKey: CLERK_PUBLISHABLE_KEY,
-        frontendApi: "clerk.converso.uk"
-      }).then((clerk) => {
-        clerk.mountSignIn(signInContainer, {
+      window.Clerk.load().then(() => {
+        window.Clerk.mountSignIn(signInContainer, {
           appearance: {
             elements: {
               rootBox: "w-full",
