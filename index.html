@@ -57,7 +57,8 @@ const ALLOWED_EMAILS = [
 /* --------------------------------------------------
       AUDIT LOGGING SYSTEM
 -------------------------------------------------- */
-const AUDIT_LOG_WEBHOOK = "https://hook.eu2.make.com/YOUR_AUDIT_WEBHOOK_URL_HERE";
+const AUDIT_LOG_WEBHOOK = "https://hook.eu2.make.com/gmbtntgkxq7kagl456vblixfnn7jwgfd"
+";
 
 const logAuditEvent = async (eventType, eventData, user) => {
   try {
@@ -1063,7 +1064,10 @@ const renderApp = async () => {
   const checkAndMountSignIn = setInterval(() => {
     const signInContainer = document.getElementById("clerk-signin");
     if (signInContainer && window.Clerk) {
-      window.Clerk(CLERK_PUBLISHABLE_KEY).then((clerk) => {
+      window.Clerk({
+        publishableKey: CLERK_PUBLISHABLE_KEY,
+        frontendApi: "clerk.converso.uk"
+      }).then((clerk) => {
         clerk.mountSignIn(signInContainer, {
           appearance: {
             elements: {
